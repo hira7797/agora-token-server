@@ -26,23 +26,27 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ error: "Firebase Admin config missing" });
     }
 
-    const { token, title, body, type, chatId, senderUid } = req.body || {};
+    const { token, title, body, type, chatId, senderUid, targetScreen } = req.body || {};
     if (!token || !title || !body) {
       return res.status(400).json({ error: "token, title and body are required" });
     }
 
+    const notificationType = String(type || "new_message");
     const message = {
       token,
       notification: { title, body },
       data: {
-        type: String(type || "new_message"),
+        title: String(title),
+        body: String(body),
+        type: notificationType,
         chatId: String(chatId || ""),
-        senderUid: String(senderUid || "")
+        senderUid: String(senderUid || ""),
+        targetScreen: String(targetScreen || "")
       },
       android: {
         priority: "high",
         notification: {
-          channelId: type && String(type).includes("call") ? "calls" : "messages",
+          channelId: notificationType.includes("call") ? "calls" : "messages",
           sound: "default"
         }
       }
