@@ -3,7 +3,13 @@ const admin = require('firebase-admin');
 
 // Requires FIREBASE_SERVICE_ACCOUNT_JSON (server-only), and Cloudinary env variables.
 if (!admin.apps.length) {
-  admin.initializeApp({credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON))});
+  admin.initializeApp({
+  credential: admin.credential.cert(
+    JSON.parse(
+      Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8')
+    )
+  )
+});
 }
 
 module.exports = async function handler(req, res) {
