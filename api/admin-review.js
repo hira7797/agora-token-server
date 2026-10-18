@@ -25,6 +25,23 @@ module.exports = async function handler(req, res) {
         selfieVerificationStatus: decision, isVerified: decision === 'verified',
         selfieVerificationReviewedAt: reviewedAt, selfieVerificationRejectionReason: reason
       });
+      // Idempotent per-review in-app notification. Sent with the same atomic transaction.
+      const notificationRef = db.collection('notifications').doc(uid).collection('items').doc('selfie_review_' + reviewedAt);
+      tx.set(notificationRef, {
+        id: notificationRef.id,
+        type: 'verification',
+        title: decision === 'verified' ? 'Selfie verification approved' : 'Selfie verification rejected',
+        body: decision === 'verified'
+          ? 'Your Shaadi 360 selfie has been approved. Your account is now verified.'
+          : 'Your selfie was not approved. ' + reason + ' Please open your profile and take a new selfie.',
+        timestamp: reviewedAt,
+        createdAt: reviewedAt,
+        isRead: false,
+        senderId: '',
+        targetScreen: 'profile',
+        verificationStatus: decision,
+        recipientUid: uid
+      });
     });
     return res.status(200).json({ ok: true, status: decision });
   } catch (err) { error(res, err); }
