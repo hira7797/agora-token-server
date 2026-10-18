@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Shaadi 360 • Admin Verification</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#26212a;background:#fcf9fb}*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #ecdde5;padding:22px max(20px,calc((100% - 1050px)/2))}header h1{margin:0;color:#b32b69;font-size:25px}main{max-width:1050px;margin:26px auto;padding:0 18px}.muted{color:#6c6470}.actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}button{border:0;border-radius:10px;padding:11px 16px;font-weight:700;cursor:pointer}button:disabled{opacity:.5;cursor:not-allowed}.primary{background:#b32b69;color:white}.neutral{background:#f4e9ef;color:#61233f}.danger{background:#a12f3a;color:white}.panel{background:white;border:1px solid #f0dfe8;box-shadow:0 4px 18px #44243a0a;border-radius:16px;padding:20px;margin-bottom:18px}.request{display:grid;gap:15px}.photos{display:grid;grid-template-columns:1fr 1fr;gap:12px}.photo{min-height:220px;border:1px solid #e6d7e0;border-radius:12px;overflow:hidden;background:#f6f0f4;display:flex;flex-direction:column}.photo strong{padding:9px 12px;font-size:13px}.photo img{width:100%;height:250px;object-fit:contain;background:#f2edf0}.empty{padding:24px;color:#766a74}.row{display:flex;gap:9px;flex-wrap:wrap}.error{color:#b3202c}.ok{color:#137e53}input{width:100%;padding:11px;margin:8px 0;border:1px solid #d6c5cc;border-radius:8px}@media(max-width:560px){.photos{grid-template-columns:1fr}}
+</style></head><body>
+<header><h1>Shaadi 360 Admin</h1><span class="muted">Manual selfie verification • Authorized admins only</span></header>
+<main><section id="login" class="panel"><h2>Administrator sign in</h2><p class="muted">Sign in with your authorized Firebase Google account.</p><button id="signIn" class="primary">Sign in with Google</button></section>
+<section id="workspace" hidden><div class="actions"><button id="reload" class="neutral">Refresh pending requests</button><button id="signOut" class="neutral">Sign out</button><span id="count" class="muted"></span></div><p id="message" role="status" aria-live="polite"></p><div id="requests"></div></section></main>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {getAuth,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {firebaseConfig} from './firebase-config.js';
+const auth=getAuth(initializeApp(firebaseConfig));const $=x=>document.getElementById(x);let records=[];
+function message(t,err=false){$('message').textContent=t;$('message').className=err?'error':'ok'}
+async function api(path,options={}){const user=auth.currentUser;if(!user)throw Error('Please sign in');const token=await user.getIdToken();const r=await fetch(path,{...options,headers:{Authorization:'Bearer '+token,...(options.body?{'Content-Type':'application/json'}:{})},cache:'no-store'});const data=await r.json();if(!r.ok)throw Error(data.error||`HTTP ${r.status}`);return data}
+function el(tag,cls,text){const a=document.createElement(tag);if(cls)a.className=cls;if(text!=null)a.textContent=text;return a}
+function button(label,cls,fn){const b=el('button',cls,label);b.addEventListener('click',fn);return b}
+async function showSelfie(uid,img,btn){btn.disabled=true;try{const data=await api('/api/admin-selfie?uid='+encodeURIComponent(uid));img.src=data.url;img.alt='Verification selfie of '+uid;btn.hidden=true;}catch(e){message(e.message,true)}finally{btn.disabled=false}}
+async function decide(item,decision){let reason='';if(decision==='rejected'){reason=prompt('Reason for rejection (shown to user):')||'';if(!reason.trim())return;}else if(!confirm('Approve this verification request?'))return;
+  try{message('Saving review...');await api('/api/admin-review',{method:'POST',body:JSON.stringify({uid:item.uid,decision,reason})});message('Review saved successfully');await load()}catch(e){message(e.message,true)}}
+function render(){const wrap=$('requests');wrap.replaceChildren();$('count').textContent=records.length+' pending';if(!records.length){wrap.append(el('p','muted','No pending verification requests.'));return;}
+ for(const r of records){const card=el('section','panel request');const title=el('h3','',r.displayName);card.append(title,el('p','muted','Submitted: '+(r.submittedAt?new Date(r.submittedAt).toLocaleString():'Unknown')));
+ const photos=el('div','photos');const selfie=el('div','photo');selfie.append(el('strong','','Camera selfie'));const image=el('img');image.alt='Selfie not loaded';selfie.append(image);const show=button('Load private selfie','neutral',()=>showSelfie(r.uid,image,show));selfie.append(show);
+ const publicPhoto=el('div','photo');publicPhoto.append(el('strong','','Profile photo'));if(r.profileImageUrl){const img=el('img');img.src=r.profileImageUrl;img.referrerPolicy='no-referrer';img.alt='User profile photo';publicPhoto.append(img)}else publicPhoto.append(el('div','empty','No profile photo supplied'));
+ photos.append(selfie,publicPhoto);card.append(photos);const actions=el('div','row');actions.append(button('Approve','primary',()=>decide(r,'verified')),button('Reject','danger',()=>decide(r,'rejected')));card.append(actions);wrap.append(card)} }
+async function load(){try{message('Loading pending requests...');const data=await api('/api/admin-verifications');records=data.requests||[];render();message('')}catch(e){message(e.message,true)}}
+$('signIn').onclick=async()=>{try{await signInWithPopup(auth,new GoogleAuthProvider())}catch(e){alert(e.message)}};$('signOut').onclick=()=>signOut(auth);$('reload').onclick=load;
+onAuthStateChanged(auth,u=>{$('login').hidden=!!u;$('workspace').hidden=!u;if(u)load();else{$('requests').replaceChildren();message('')}});
+</script></body></html>
