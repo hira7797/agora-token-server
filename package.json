@@ -5,6 +5,7 @@
   "dependencies": {
     "agora-token": "^2.0.5",
     "firebase-admin": "^12.7.0",
-    "cloudinary": "^2.5.1"
+    "cloudinary": "^2.5.1",
+    "googleapis": "^188.0.0"
   }
 }
